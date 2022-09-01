@@ -1,5 +1,3 @@
-import json
-from msilib.schema import Error
 import time
 from flask import jsonify, request
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
@@ -88,26 +86,28 @@ def logout():
 	return "Successfully logged out!", 200
 
 
+
 @app.route('/users')
 @login_required
 def list_users():
-	users = Users.query.all()
-	return jsonify([{
-		'Name': user.name,
-		'Email': user.email,
-		'Username': user.username,
-		'Country': user.country,
-		'Age': user.age,
-		'Role': user.role_id
-	} for user in users])
-	
+	if current_user.role_id == 1:
+		users = Users.query.all()
+		return jsonify([{
+			'Name': user.name,
+			'Email': user.email,
+			'Username': user.username,
+			'Country': user.country,
+			'Age': user.age,
+			'Role': user.role_id
+		} for user in users]), 200
+	return 'Access Forbidden.', 412
  
 	
 @app.route('/users/<int:id>', methods=['GET', 'PUT', 'DELETE'])
 @login_required
 def list_user(id):
 	user = Users.query.filter_by(id=id).first_or_404(description='There is no data with that specific information')
-	if user and request.method == 'GET': 
+	if user and request.method == 'GET' and current_user.username == user.username: 
 		return jsonify({
 			'Name': user.name,
 			'Email': user.email,
@@ -116,12 +116,24 @@ def list_user(id):
 			'Age': user.age,
 			'Role': user.role_id
 		}), 200
-	elif user and request.method == 'PUT':
+	elif user and request.method == 'PUT' and current_user.username == user.username:
 		new_info = request.get_json()
 		user.username = new_info['username']
 		db.session.commit()
 		return 'Succefuly modified', 200
-	return 'There was an error', 500
+	elif user and request.method == 'DELETE' and current_user.username == user.username:
+		db.session.delete(user)
+		db.session.commit()
+		return 'The user has been deleted!',400
+		
+	return 'Access Forbidden', 412
+
+
+
+@app.route('/test', methods=['GET'])
+@login_required
+def test():
+	return jsonify(current_user.username), 200
 
 
 
