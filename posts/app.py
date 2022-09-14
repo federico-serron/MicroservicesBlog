@@ -1,5 +1,6 @@
-from distutils.log import debug
+import datetime
 import time
+from modules.utilities import slugear
 from flask import jsonify, request
 from config import create_app, db
 from models import Posts
@@ -30,13 +31,50 @@ def list_all_posts():
                 'Image': post.image_url,
                 'Status': post.status,
                 'Author': post.author,
-                'Date': post.date
+                'Date': post.date,
+                'Slug': post.slug
             } for post in posts]), 200
     else:
         return 'No posts published for the moment.', 404
     
     
-
+    
+@app.route('/admin/new', methods=['GET', 'POST'])
+def create_post():
+    if request.method == 'POST':
+        requested_fields_for_post = ['title', 'description', 'image_url']
+        post_data = request.get_json()
+        for field in requested_fields_for_post:
+            if field not in post_data:
+                return f'The field {field} is required', 412
+        else:
+            try:
+                new_post = Posts(title=post_data['title'],
+                                 description=post_data['description'],
+                                 image_url=post_data['image_url'],
+                                 status = 2,
+                                 author='Fede manual',
+                                 date=datetime.date.today(),
+                                 slug=slugear(post_data['title']))
+                db.session.add(new_post)
+                db.session.commit()
+            except Exception:
+                return 'There was an error trying to create the new post, please try again.', 412
+        return 'The post has been created successfully.', 200
+        
+    
+    
+@app.route('/blog/<string:slug>')
+def post(slug):
+    post = Posts.query.filter_by(slug=slug).first()
+    if post:
+        return jsonify({
+            'Titlte': post.title,
+            'Description': post.description
+        }), 200
+    return 'There was an error, please try again later.', 404
+    
+    
 
 
 if __name__ == '__main__':
